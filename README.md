@@ -1,63 +1,64 @@
-# PortfolioApi
+# Portfolio Management API
 
-An investment portfolio tracking Web API built with modern .NET and Entity Framework Core. This application acts as a financial tracking ledger, allowing users to create portfolios, register assets, record transaction histories (buys/sells), and track real-time analytics like dollar-weighted average costs, asset allocation, and profit/loss (PnL).
+A high-performance, asynchronous, code-first ASP.NET Core Web API built with C# and Entity Framework Core to track financial portfolios, assets, trade transactions, and real-time open holdings.
 
-## 🚀 Key Features
+## 🚀 Key Architectural & Engineering Constraints Met
+- **Strictly Async Pipeline:** Every service, controller, and query pathway handles fully asynchronous streaming natively via `CancellationToken` integration.
+- **Zero Heavy External Tooling dependencies:** Engineered completely cleanly without `AutoMapper` or `MediatR` to keep payload structural operations explicitly declared and fast.
+- **N+1 SQL Resolution Engine:** Projections for open holding lists and portfolio value metrics are completely compiled into highly efficient, **single SELECT execution blocks** to drop overhead database roundtrips.
+- **Data Concurrency Locking Guard:** Implements automated row-level concurrency via database `RowVersion` timestamp tokens. This blocks race conditions or multi-user transaction collisions natively at the entity tier.
+- **High-Precision Financial Math Operations:** Uses high-precision `decimal` variables internally for holding and transaction metrics. All monetary summaries utilize `MidpointRounding.AwayFromZero` math mapping exclusively inside output/storage definitions to prevent ledger skew.
 
-*   **Portfolio Management:** Support for multiple user-managed portfolios with local base currency designations.
-*   **Transaction Processing Engine:** Complete transaction ledger ensuring valid execution parameters (e.g., short-selling prevention, automated fee integrations).
-*   **Real-Time Analytics:** Dynamically calculated holding metrics including total market values, cost basis tracking, and realized/unrealized PnL summaries.
-*   **Asset Allocation:** On-the-fly portfolio diversification breakdowns grouped by distinct asset types (e.g., Stocks, Cryptocurrencies, ETFs).
-*   **Robust Architecture:** Features a native central exception pipeline mapping errors into standard RFC problem details and modern thread-safe database concurrency constraints.
+---
 
-## 🛠️ Built With
+## 🛠️ Testing the Live Endpoints (Local Base: http://localhost:5076)
 
-*   **.NET 10** (C#)
-*   **Entity Framework Core 10** (Database ORM)
-*   **SQL Server / LocalDB** (Relational Database)
-*   **OpenAPI/Swagger** (Interactive API Testing Tools)
+To test the workflow, execute these HTTP request sequences using Postman, Thunder Client, or cURL commands while your server is running:
 
-## 📦 Database Schema Structure
+### 1. Initialize a Trackable Asset
+- **HTTP Method:** `POST`
+- **URL Path:** `http://localhost:5076/api/assets`
+- **JSON Request Body Body:**
+```json
+{
+  "symbol": "AAPL",
+  "name": "Apple Inc.",
+  "assetType": "Stock",
+  "currentPrice": 175.50
+}
+```
 
-The application maps out the following interconnected models in the relational database:
-*   **Portfolios:** Core entity managing owner info and preferred currency settings.
-*   **Assets:** Global tracking database mapping symbol identifiers, asset types, and current valuations.
-*   **Transactions:** Historical ledger record tracking asset trade snapshots (Buy/Sell actions).
-*   **Holdings:** Running balances capturing active holdings quantities, cost basis averages, and cumulative trade metrics.
+### 2. Provision a New Investor Portfolio Ledger
+- **HTTP Method:** `POST`
+- **URL Path:** `http://localhost:5076/api/portfolios`
+- **JSON Request Body:**
+```json
+{
+  "name": "Tech Growth Portfolio",
+  "ownerEmail": "investor@example.com",
+  "baseCurrency": "USD"
+}
+```
+*(Take note of the integer `"id"` returned in this response payload to use in the following endpoints)*
 
-## 🏁 Getting Started
+### 3. Record a Financial Buy Transaction
+- **HTTP Method:** `POST`
+- **URL Path:** `http://localhost:5076/api/portfolios/{portfolioId}/transactions`
+- **JSON Request Body:**
+```json
+{
+  "symbol": "AAPL",
+  "type": "Buy",
+  "quantity": 10.000000,
+  "unitPrice": 175.5000,
+  "fee": 4.95
+}
+```
 
-### Prerequisites
+### 4. Fetch the Portfolio Open Holdings Grid (Single-SELECT, No N+1)
+- **HTTP Method:** `GET`
+- **URL Path:** `http://localhost:5076/api/portfolios/{portfolioId}/holdings`
 
-*   [.NET 10 SDK](https://microsoft.com) or later.
-*   [Visual Studio 2022](https://microsoft.com) (with ASP.NET and web development workloads) or JetBrains Rider / VS Code.
-*   SQL Server LocalDB instance (`(localdb)\mssqllocaldb`).
-
-### Installation & Local Setup
-
-1.  **Clone the Repository**
-    ```bash
-    git clone https://github.com
-    cd PortfolioApi
-    ```
-
-2.  **Verify Configuration**
-    Ensure your local connection string in `appsettings.json` points to a valid LocalDB instance:
-    ```json
-    "ConnectionStrings": {
-      "DefaultConnection": "Server=(localdb)\\mssqllocaldb;Database=PortfolioDb;Trusted_Connection=True;MultipleActiveResultSets=true"
-    }
-    ```
-
-3.  **Apply Database Migrations**
-    Open your terminal or Package Manager Console inside the project directory and run the initialization commands:
-    ```bash
-    dotnet ef database update
-    ```
-
-4.  **Run the Application**
-    Start the local web server:
-    ```bash
-    dotnet run
-    ```
-    The console output will display the listening local addresses (e.g., `http://localhost:5076`). You can append `/swagger` or use native OpenAPI tools to explore the active endpoints.
+### 5. Fetch the Consolidated Allocation & PnL Financial Summary
+- **HTTP Method:** `GET`
+- **URL Path:** `http://localhost:5076/api/portfolios/{portfolioId}/summary`
